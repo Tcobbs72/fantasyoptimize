@@ -77,13 +77,13 @@ TeamSchedule = React.createClass({
                     <label className="form-label history-form">{w}:</label>
                 </div>
                 <div className="col-md-6 col-md-offset-1">
-                    <select className="input-form history-form" value={val} onChange={this.doNothing}>
+                    <select className="input-form history-form" value={val}>
                         <option value="">Select A Team</option>
                         {this.renderTeams()}
                     </select>
                 </div>
                 <div className="col-md-4 text-center">
-                    <label className="isHomeGame"><input type="checkbox" className="homeGameCheck" checked={home} onChange={this.doNothing}/>Home Game?</label>
+                    <label className="isHomeGame"><input type="checkbox" className="homeGameCheck" checked={home}/>Home Game?</label>
                 </div>
             </div>
         });

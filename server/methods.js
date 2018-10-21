@@ -5,6 +5,8 @@ var fs = Npm.require('fs');
 var path = Npm.require('path');
 var basepath = path.resolve('.').split('.meteor')[0];
 
+var XLSX = Npm.require('xlsx');
+
 var qbs = [], rbs = [], wrs = [], tes = [];
 
 Meteor.methods({
@@ -15,7 +17,7 @@ Meteor.methods({
                 console.log("There is already entries for week ", i);
             }
             else{
-                var result = Meteor.http.get("http://www.nfl.com/stats/weeklyleaders?week="+i+"&season=2015&showCategory=Passing");
+                var result = Meteor.http.get("http://www.nfl.com/stats/weeklyleaders?week="+i+"&season=2018&showCategory=Passing");
                 var $ = cheerio.load(result.content);
                 $("#passer").children().children("tr").each(function () {
                     if ($(this).hasClass("odd") || $(this).hasClass("even")) {
@@ -50,6 +52,7 @@ Meteor.methods({
                                 else if(!opp) opp = $(this).text() + $(this).children("a").text();
                             }
                         });
+                        console.log("TAKING ACTION ON PLAYER", attempt, team, name);
                         if(Players.findOne({name: name, team: team, positionId: {$in: [Positions.findOne({position: "RB"})._id, Positions.findOne({position: "WR"})._id, Positions.findOne({position: "TE"})._id]}})){
                             var player = Players.findOne({name: name, team: team});
                             player.history = _.map(player.history, function(h){
@@ -58,17 +61,17 @@ Meteor.methods({
                                 }
                                 return h;
                             });
+                            console.log("UPDATING PLAYER", name);
                             Players.update({name: name, team: team}, {$set: {history: player.history}});
                         }
                         else if(attempt>5 && team && name){
                             var qb = Players.findOne({name: name, team: team, positionId: Positions.findOne({position: "QB"})._id});
                             if(!qb && points>=4){
-                                console.log("creating qb", name);
-                                qb = {name: name, average: points, team: team, history: [{week: i, points: points, team: _.find(Teams.findOne({name: team}).schedule, function(s){return s.week===i;}).team}], positionId: Positions.findOne({position: "QB"})._id, health: "Healthy"};
+                                qb = {name: name, average: points, team: team, history: [{week: i, points: points, team: _.find(Teams.findOne({name: team}).schedule, function(s){return s.week==i;}).team}], positionId: Positions.findOne({position: "QB"})._id, health: "Healthy"};
                                 Players.insert(qb);
                             }
                             else if(qb){
-                                console.log("adding history", name);
+                                console.log("ADDING PLAYER", name);
                                 qb.history.push({week: i, points: points, team: _.find(Teams.findOne({name: team}).schedule, function(s){return s.week===i;}).team});
                                 var sum = 0, games = 0;
                                 _.each(qb.history, function(g){
@@ -92,7 +95,7 @@ Meteor.methods({
                 console.log("There is already entries for week ", i);
             }
             else{
-                var result = Meteor.http.get("http://www.nfl.com/stats/weeklyleaders?week="+i+"&season=2015&showCategory=Receiving");
+                var result = Meteor.http.get("http://www.nfl.com/stats/weeklyleaders?week="+i+"&season=2018&showCategory=Receiving");
                 var $ = cheerio.load(result.content);
                 $("#receiver").children().children("tr").each(function () {
                     if ($(this).hasClass("odd") || $(this).hasClass("even")) {
@@ -167,7 +170,7 @@ Meteor.methods({
                 }
                 else{
 
-                    var result = Meteor.http.get("http://www.nfl.com/stats/weeklyleaders?week=" + i + "&season=2015&showCategory=Rushing");
+                    var result = Meteor.http.get("http://www.nfl.com/stats/weeklyleaders?week=" + i + "&season=2018&showCategory=Rushing");
                     var $ = cheerio.load(result.content);
                     $("#rusher").children().children("tr").each(function () {
                         if ($(this).hasClass("odd") || $(this).hasClass("even")) {
@@ -265,20 +268,21 @@ Meteor.methods({
         }
     },
     getSalaries: function(week){
-        Players.update({}, {$set: {price: 0}}, {multi: true});
+        //Players.update({}, {$set: {price: 0}}, {multi: true});
         Teams.update({}, {$set: {price: 0}}, {multi: true});
-        var excel = new Excel('xls');
-        var workbook = excel.readFile(basepath + "client/salaries/week"+week+".xls");
-        var week = workbook.SheetNames;
+        var workbook = XLSX.readFile(basepath + "client/salaries/week"+week+".xlsx");
+        week = workbook.SheetNames;
         //console.log("Get the 1st Sheet Name (remember is an array): " + workbook.SheetNames[0]);
         //console.log("Get Some Cell from it: " + JSON.stringify(workbook.Sheets[week[0]]['C2']));
         for(var i = 2; workbook.Sheets[week[0]]['B'+i]; i++){
             var name = workbook.Sheets[week[0]]['B'+i].v;
             var salary = workbook.Sheets[week[0]]['C'+i].v;
-            if(name.split(' ').length===1) Teams.update({name: new RegExp(name, "i")}, {$set: {price: salary}});
-            if(!Players.findOne({name: name})) console.log("Couldnt find player: ", name);
-            Players.update({name: name}, {$set: {price: salary}});
-            console.log("setting salary of ", name, salary);
+            if(name.match(/\b\w+\b/g).length===1){
+                console.log("SETTING TEAM PRICE", workbook.Sheets[week[0]]['F'+i].v.toUpperCase(), salary);
+                Teams.update({abbrev: workbook.Sheets[week[0]]['F'+i].v.toUpperCase()}, {$set: {price: salary}});
+            }
+            //if(!Players.findOne({name: name})) console.log("Couldnt find player: ", name);
+            //Players.update({name: name}, {$set: {price: salary}});
         }
     },
     updateMatchups: function(id, matchups){
@@ -333,5 +337,57 @@ Meteor.methods({
         total+=obj.defenseVsWR;
         total+=obj.defenseVsTE;
         Teams.update({name: team}, {$set: {average: Math.round(100.0*total/4)/100}});
+    },
+    setSchedules: function(){
+        _.forEach(Teams.find().fetch(), function(team){
+            var words = team.name.split(" ");
+            var search = words[words.length - 1].toUpperCase();
+            var result = Meteor.http.get("http://www.nfl.com/schedules/2018/REG/"+search);
+            var $ = cheerio.load(result.content);
+            var matchups = [];
+            $("li.schedules-list-matchup.post").each(function () {
+                var info = $(this).children().children(".list-matchup-row-center");
+                var week = $(info).children(".list-matchup-row-week").children("span").text();
+                var game = $(info).children(".list-matchup-row-anim").children(".list-matchup-row-team").children(".desktop");
+                var awayTeam = parseTeamWithPoints($(game).children(".team-name.away").text());
+                var homeTeam = parseTeamWithPoints($(game).children(".team-name.home").text());
+
+                console.log(team.name, awayTeam, homeTeam);
+
+                var home = _.contains(team.name.toLowerCase().split(" "), homeTeam.toLowerCase());
+                var enemy = home ? awayTeam : homeTeam;
+                enemy = Teams.findOne({name: {$regex: '.*'+enemy+'.*'}}).name;
+
+                if(enemy){
+                     matchups.push({team: enemy, week: parseInt(week), home: home});
+                }
+            });
+            $("li.schedules-list-matchup.pre").each(function () {
+                var info = $(this).children().children(".list-matchup-row-center");
+                var week = $(info).children(".list-matchup-row-week").children("span").text();
+                var game = $(info).children(".list-matchup-row-anim").children(".list-matchup-row-team");
+                var awayTeam = $(game).children(".team-name.home").text();
+                var homeTeam = $(game).children(".team-name.away").text();
+
+                var home = homeTeam != "";
+                var enemy = home ? homeTeam : awayTeam;
+                enemy = Teams.findOne({name: {$regex: '.*'+enemy+'.*'}}).name;
+
+                if(enemy){
+                    matchups.push({team: enemy, week: parseInt(week), home: home});
+                }
+            });
+            Teams.update({_id: team._id}, {$set: {"schedule": matchups}});
+        });
     }
 });
+
+function parseTeamWithPoints(string){
+    var i = string.length-1;
+    var done = false;
+    while (i > 0 && !done) {
+        if(isNaN(parseInt(string.charAt(i)))) done = true;
+        i--;
+    }
+    return string.substr(0, i+1);
+}

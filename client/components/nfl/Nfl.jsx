@@ -506,6 +506,8 @@ Nfl = React.createClass({
 });
 
 function loadWeighted(players, teams){
+
+    console.log("LOADING WEIGHTED", players, teams);
     var qbs = _.filter(players, function(p){return p.positionId._str===Positions.findOne({position: "QB"})._id._str;}) || [];
     //all wide receivers
     var wrs = _.filter(players, function(p){return p.positionId._str===Positions.findOne({position: "WR"})._id._str;}) || [];
@@ -513,6 +515,7 @@ function loadWeighted(players, teams){
     var rbs = _.filter(players, function(p){return p.positionId._str===Positions.findOne({position: "RB"})._id._str;}) || [];
     //all tight ends
     var tes = _.filter(players, function(p){return p.positionId._str===Positions.findOne({position: "TE"})._id._str;}) || [];
+    console.log("FOUND PLAYERS", qbs, rbs, wrs, tes);
 
     qbs = _.sortBy(findPlayerValue(qbs, "defenseVsQB"), function(p){return p.value;}).reverse();
     rbs = _.sortBy(findPlayerValue(rbs, "defenseVsRB"), function(p){return p.value;}).reverse();

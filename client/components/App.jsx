@@ -1,14 +1,16 @@
-//Meteor.startup(function(){
-//    Meteor.setTimeout(function(){
-//        Meteor.call("getQBs", 16, function(error, result) {
-//        });
-//        Meteor.call("getRBs", 16, function(error, result) {
-//        });
-//        Meteor.call("getWRs", 16, function(error, result){
-//        });
-//        //Meteor.call("getSalaries", 16);
-//    }, 1000);
-//});
+Meteor.startup(function(){
+    Meteor.setTimeout(function(){
+        //Meteor.call("setSchedules", function(err, result) {
+        //});
+        //Meteor.call("getQBs", 1, function(error, result) {
+        //});
+        //Meteor.call("getRBs", 1, function(error, result) {
+        //});
+        //Meteor.call("getWRs", 1, function(error, result){
+        //});
+        //Meteor.call("getSalaries", 7);
+    }, 1000);
+});
 
 Sports = React.createClass({
     mixins: [ReactMeteorData],
